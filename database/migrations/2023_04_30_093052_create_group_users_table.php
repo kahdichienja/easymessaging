@@ -13,8 +13,11 @@ class CreateGroupUsersTable extends Migration
      */
     public function up()
     {
-        Schema::create('group_users', function (Blueprint $table) {
+        Schema::create('group_user', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('group_id')->constrained();
+            $table->foreignId('user_id')->constrained();
+            $table->boolean('is_admin');
             $table->timestamps();
         });
     }
