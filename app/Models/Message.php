@@ -26,6 +26,10 @@ class Message extends Model
     {
         return $this->belongsTo(User::class);
     }
+    public function sender()
+    {
+        return $this->belongsTo(User::class);
+    }
 
     public function group()
     {
