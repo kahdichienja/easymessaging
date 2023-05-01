@@ -18,6 +18,7 @@ class CreateMessagesTable extends Migration
             $table->foreignId('group_id')->constrained();
             $table->foreignId('user_id')->constrained();
             $table->text('content');
+            $table->string('file')->nullable();
             $table->boolean('is_read')->default(false);
             $table->softDeletes();
             $table->timestamps();

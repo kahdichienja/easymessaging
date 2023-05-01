@@ -19,7 +19,7 @@ class GroupUser extends Model
         'is_admin',
     ];
 
-    protected $cast = [
+    protected $casts = [
         'is_admin' => 'boolean',
     ];
 

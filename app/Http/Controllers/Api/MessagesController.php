@@ -180,7 +180,10 @@ class MessagesController extends Controller
         // Get the group ID from the request
         $groupId = $request->group_id;
 
-        $messages = Group::where('id', $request->group_id)
+        // $currentPage = $data['page'];
+        // $pageSize = $data['page_size'] ?? 15;
+
+        $messages = Group::latest('created_at')->where('id', $request->group_id)
         ->whereHas('users', function ($query) use ($userId) {
             $query->where('user_id', $userId);
         })

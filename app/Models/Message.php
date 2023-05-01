@@ -13,13 +13,25 @@ class Message extends Model
 
     protected $fillable = [
         'user_id',
+        'conversation_id',
         'group_id',
         'content',
+        'file',
         'is_read',
     ];
 
     protected $dates = [
         'deleted_at',
+    ];
+
+    protected $casts = ['is_read' => 'boolean'];
+
+    public static $enums = [
+        'type' => [
+            'image' => 'Image',
+            'video' => 'Video',
+            'audio' => 'Audio',
+        ],
     ];
 
     public function user()
