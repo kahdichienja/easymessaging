@@ -53,4 +53,11 @@ class User extends Authenticatable
     {
         return $this->hasMany(Message::class);
     }
+
+
+
+    public function lastMessage()
+    {
+        return $this->hasMany(Message::class, 'user_id')->orWhere('receiver_id', $this->id)->latest()->first();
+    }
 }

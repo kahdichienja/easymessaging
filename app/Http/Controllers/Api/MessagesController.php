@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
+use Exception;
 use App\Models\User;
 use App\Models\Group;
 use App\Models\Message;
@@ -103,7 +104,70 @@ class MessagesController extends Controller
         return $this->success($groupUser, " successfully");
 
     }
-    public function createMessage(Request $request): JsonResponse
+
+    public function fetchMessagesQuery($user_id)
+    {
+        return Message::where('receiver_id', Auth::user()->id)->where('user_id', $user_id)
+                    ->orWhere('receiver_id', $user_id)->where('user_id', Auth::user()->id);
+    }
+    public function getLastMessageQuery($user_id)
+    {
+        return $this->fetchMessagesQuery($user_id)->latest()->first();
+    }
+
+    public function countUnseenMessages($user_id)
+    {
+        return Message::where('receiver_id', $user_id)->where('user_id', Auth::user()->id)->where('is_read', false)->count();
+    }
+
+
+
+    public function getContacts(Request $request): JsonResponse
+    {
+        $currentUser = auth()->user();
+        $userId = $currentUser->id;
+
+        $contactArray = [];
+
+
+        $users = User::select('users.*',  'm.content as lastmessage', 'm.created_at' )
+        ->leftJoin(DB::raw('(SELECT
+            MAX(id) as id,
+            IF(user_id = '.$currentUser->id.', receiver_id, user_id) as chat_user_id
+            FROM messages
+            WHERE user_id = '.$currentUser->id.' OR receiver_id = '.$currentUser->id.'
+            GROUP BY chat_user_id) as latest'), function($join) {
+            $join->on('users.id', '=', 'latest.chat_user_id');
+        })
+        ->leftJoin('messages as m', 'latest.id', '=', 'm.id')
+
+        // ->selectRaw('SUM(CASE WHEN messages.is_read = false AND messages.receiver_id = ? THEN 1 ELSE 0 END) as unread_count', [$currentUser->id])
+        ->where(function ($query) use ($currentUser) {
+            $query->where('user_id', $currentUser->id)
+                ->orWhere('receiver_id', $currentUser->id);
+        })
+
+        ->whereNotNull('latest.id')
+        ->orderBy('latest.id', 'desc')
+        ->get();
+
+        foreach ($users as $user) {
+            array_push($contactArray, [
+                "contact" => [
+                    "lastmessagedate" => $user->created_at->diffForHumans(),
+                    "username" => $user->name,
+                    "useremail" => $user->email,
+                    "lastmessage" => $user->lastmessage,
+                    "userid" => $user->id,
+                ],
+                 "unreadcount" => $this->countUnseenMessages($user->id)
+            ]);
+        }
+
+
+        return $this->success($contactArray, " successfully");
+    }
+    public function createMessageGroup(Request $request): JsonResponse
     {
         $user = Auth::user();
 
@@ -136,6 +200,50 @@ class MessagesController extends Controller
         ->each(function ($user) {
             $user->pivot->increment('unread_count');
         });
+
+        return $this->success($message);
+
+
+    }
+    public function userMessage(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+        $conversation = Message::where('user_id', $user->id)
+        ->where('group_id', null)
+        ->where("receiver_id", $request->receiver_id)
+        ->with('user')
+        ->get();
+
+        return $this->success($conversation, " successful");
+    }
+    public function createMessage(Request $request): JsonResponse
+    {
+        $user = Auth::user();
+
+        // Validate request data
+        $validatedData = $request->validate([
+            'receiver_id' => 'required|integer',
+            'message' => 'required|string|max:1000'
+        ]);
+
+        // Check if user to be added exists
+        $userexists = User::where('id', $request->receiver_id)->exists();
+
+        if (!$userexists) {
+            return $this->error('User not in the system', 403);
+        }
+
+
+        // Create the message
+        $message = new Message;
+        $message->receiver_id = $validatedData['receiver_id'];
+        $message->user_id = $user->id;
+        $message->content = $validatedData['message'];
+        //
+        $message->save();
+
+        ///TODO: broadcast new message to group members.
+
 
         return $this->success($message);
 
@@ -214,5 +322,18 @@ class MessagesController extends Controller
             return $this->error('Unauthorized', 401);
         }
 
+    }
+
+    public function allContacts(Request $request): JsonResponse
+    {
+
+        return $this->success(User::latest()->where('id', '!=', Auth::user()->id)->get()->map(function ($user) {
+            return[
+                "uid" => $user->id,
+                "useremail" => $user->email,
+                "username" => $user->name,
+                "joined" => $user->created_at->diffForHumans(),
+            ];
+        }), "success");
     }
 }

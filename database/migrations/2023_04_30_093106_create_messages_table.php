@@ -15,7 +15,7 @@ class CreateMessagesTable extends Migration
     {
         Schema::create('messages', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('group_id')->constrained();
+            $table->foreignId('group_id')->nullable()->constrained();
             $table->foreignId('user_id')->constrained();
             $table->text('content');
             $table->string('file')->nullable();

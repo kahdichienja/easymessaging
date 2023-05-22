@@ -32,7 +32,13 @@ Route::prefix('v1')->group(function () {
         Route::post('messages', [MessagesController::class, 'groupMessages']);
     });
     Route::prefix('message')->middleware('auth:sanctum')->group(function () {
-        Route::post('create', [MessagesController::class, 'createMessage']);
+        Route::post('createMessageGroup', [MessagesController::class, 'createMessageGroup']);
+        Route::post('createMessage', [MessagesController::class, 'createMessage']);
+        Route::post('userMessage', [MessagesController::class, 'userMessage']);
+    });
+    Route::prefix('user')->middleware('auth:sanctum')->group(function () {
+        Route::post('contacts', [MessagesController::class, 'getContacts']);
+        Route::get('all', [MessagesController::class, 'allContacts']);
     });
 
 });
