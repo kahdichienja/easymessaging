@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Group;
 use App\Models\Message;
+use App\Models\UserSetting;
 use Laravel\Sanctum\HasApiTokens;
 use Illuminate\Notifications\Notifiable;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
@@ -23,6 +24,7 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'profile_picture',
     ];
 
     /**
@@ -33,6 +35,7 @@ class User extends Authenticatable
     protected $hidden = [
         'password',
         'remember_token',
+        'google2fa_secret',
     ];
 
     /**
@@ -42,6 +45,7 @@ class User extends Authenticatable
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
+        'google2fa_enabled' => 'boolean',
     ];
 
     public function groups()
@@ -53,7 +57,10 @@ class User extends Authenticatable
     {
         return $this->hasMany(Message::class);
     }
-
+    public function settings()
+    {
+        return $this->hasOne(UserSetting::class);
+    }
 
 
     public function lastMessage()

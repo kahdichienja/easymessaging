@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Models\Group;
 use App\Models\Message;
 use App\Models\GroupUser;
+use App\Models\UserSetting;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -29,6 +30,9 @@ class DatabaseSeeder extends Seeder
 
         // // Create 50 messages
         // Message::factory()->count(50)->create();
+
+        // // Create 1 settings
+        UserSetting::factory()->count(1)->create();
 
     }
 }

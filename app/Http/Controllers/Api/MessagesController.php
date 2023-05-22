@@ -121,7 +121,6 @@ class MessagesController extends Controller
     }
 
 
-
     public function getContacts(Request $request): JsonResponse
     {
         $currentUser = auth()->user();
@@ -319,7 +318,7 @@ class MessagesController extends Controller
             return $this->success($data);
         } else {
             // Return an error response
-            return $this->error('Unauthorized', 401);
+            return $this->error('no group found', 404);
         }
 
     }

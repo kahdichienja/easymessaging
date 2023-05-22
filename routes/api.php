@@ -16,13 +16,21 @@ use App\Http\Controllers\AuthenticationController;
 |
 */
 
-Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
-    return $request->user();
-});
+// Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
+//     return $request->user();
+// });
 
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
         Route::post('authenticate', [AuthenticationController::class, 'login']);
+        Route::post('register', [AuthenticationController::class, 'register']);
+        Route::middleware('auth:sanctum')->group(function () {
+            Route::put('updateProfile', [AuthenticationController::class, 'updateProfile']);
+            Route::get('userProfile', [AuthenticationController::class, 'userProfile']);
+            Route::get('enable2FA', [AuthenticationController::class, 'enableTwoFactorAuthentication']);
+            Route::get('disable2FA', [AuthenticationController::class, 'disableTwoFactorAuthentication']);
+            Route::post('verify2FA', [AuthenticationController::class, 'verifyTwoFactorSetup']);
+        });
     });
 
     Route::prefix('group')->middleware('auth:sanctum')->group(function () {
