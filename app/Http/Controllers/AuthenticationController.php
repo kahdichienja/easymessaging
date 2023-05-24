@@ -4,12 +4,20 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use App\Services\TwilioService;
+use Illuminate\Validation\Rule;
 use PragmaRX\Google2FA\Google2FA;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 
 class AuthenticationController extends Controller
 {
+    protected $twilioService;
+
+    public function __construct()
+    {
+        $this->twilioService = new TwilioService();
+    }
     /**
      * Enable 2FA for the user.
      *
@@ -27,7 +35,8 @@ class AuthenticationController extends Controller
         $otpCode = $google2fa->getCurrentOtp($secretKey);
 
 
-        // TODO: implement send otp to user either through email or phone in the name field i the users table.
+        // TODO: implement send otp to user either through email or phone
+        $this->twilioService->sendSms($user->phone, "OTP CODE: {$otpCode}");
 
         $user->save();
 
@@ -35,6 +44,46 @@ class AuthenticationController extends Controller
             'message' => 'Two-factor authentication enabled',
             'code' => $otpCode
         ]);
+    }
+    /**
+     * Enable 2FA for the user.
+     *
+     * @return \Illuminate\Http\JsonResponse
+     */
+    public function authenticateWithTwoFactor(Request $request)
+    {
+        $user = User::where('phone', $request->phone)->first();
+        $token = $user->createToken('auth_token')->plainTextToken;
+
+        if($user->google2fa_enabled){
+
+            $google2fa = new Google2FA();
+            $secretKey = $google2fa->generateSecretKey();
+            $user->google2fa_secret =  $secretKey;
+
+
+            // Generate an OTP code based on the secret key
+            $otpCode = $google2fa->getCurrentOtp($secretKey);
+
+
+            // TODO: implement send otp to user either through email or phone
+            // $this->twilioService->sendSms($user->phone, "OTP CODE: {$otpCode}");
+
+            $user->save();
+            return  $this->success([
+                'message' => 'Verification Code sent to you phone',
+                'code' => $otpCode,
+                'access_token' => $token,
+            ]);
+        }else{
+            return  $this->success([
+                'message' => 'Auth success',
+                'code' => "",
+                'access_token' => $token,
+            ]);
+
+        }
+
     }
 
     /**
@@ -46,6 +95,7 @@ class AuthenticationController extends Controller
     {
         $user = Auth::user();
         $user->google2fa_secret = null;
+        $user->google2fa_enabled = false;
         $user->save();
 
         return $this->success(['message' => 'Two-factor authentication disabled']);
@@ -72,7 +122,14 @@ class AuthenticationController extends Controller
             $user->google2fa_enabled = true;
             $user->save();
 
-            return $this->success(['message' => 'Two-factor authentication enabled']);
+            $token = $user->createToken('auth_token')->plainTextToken;
+
+            return $this->success([
+                'access_token' => $token,
+                'token_type' => 'Bearer',
+            ]);
+
+            // return $this->success(['message' => 'Two-factor authentication enabled']);
         }
 
         return $this->error('Invalid verification code', 422);
@@ -81,30 +138,32 @@ class AuthenticationController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'name' => 'required',
-            'password' => 'required',
+            'phone' => 'required',
+            // 'password' => 'required',
         ]);
 
-        $user = User::where('name', $request->name)->first();
+        $user = User::where('phone', $request->phone)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json([
-                'message' => 'Invalid username or password',
-            ], 401);
-        }
+        // if (!$user || !Hash::check($request->password, $user->password)) {
+        //     return response()->json([
+        //         'message' => 'Invalid phone or password',
+        //     ], 401);
+        // }
 
-        $token = $user->createToken('auth_token')->plainTextToken;
+        // $token = $user->createToken('auth_token')->plainTextToken;
 
-        return response()->json([
-            'access_token' => $token,
-            'token_type' => 'Bearer',
-        ]);
+        return $this->authenticateWithTwoFactor($request);
+
+        // return $this->success([
+        //     'access_token' => $token,
+        //     'token_type' => 'Bearer',
+        // ]);
     }
     public function register(Request $request)
     {
         // Validate the incoming request data
         $validatedData = $request->validate([
-            'name' => 'required|string|max:255',
+            'phone' => 'starts_with:+|unique:users|min:13|max:13|required|regex:/^([0-9\s\-\+\(\)]*)$/',
             'email' => 'required|string|email|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'profile_picture' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -120,13 +179,27 @@ class AuthenticationController extends Controller
 
         // Create a new user
         $user = User::create([
-            'name' => $validatedData['name'],
+            'phone' => $validatedData['phone'],
             'email' => $validatedData['email'],
             'password' => Hash::make($validatedData['password']),
             'profile_picture' => $profilePicturePath,
         ]);
 
-        // Optionally, you can perform additional actions after registration, such as sending a welcome email or setting up default settings for the user.
+
+
+        // 2FA.
+        $google2fa = new Google2FA();
+        $secretKey = $google2fa->generateSecretKey();
+        $user->google2fa_secret =  $secretKey;
+
+
+        // Generate an OTP code based on the secret key
+        $otpCode = $google2fa->getCurrentOtp($secretKey);
+
+        $user->save();
+        
+        // TODO: implement send otp to user either through email or phone
+        $this->twilioService->sendSms($user->phone, "OTP CODE: {$otpCode}");
 
         // Return a response indicating successful registration
         return $this->success(['message' => 'Registration successful'],'Registration successful', 201);
@@ -146,7 +219,7 @@ class AuthenticationController extends Controller
     {
         // Validate the request data
         $validatedData = $request->validate([
-            'name' => 'sometimes|required|string|max:255',
+            'phone' => 'sometimes|required|string|max:13'.Rule::phone(),
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . Auth::id(),
             'profile_picture' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
@@ -155,8 +228,8 @@ class AuthenticationController extends Controller
         $user = Auth::user();
 
         // Update the user's profile information
-        if (isset($validatedData['name'])) {
-            $user->name = $validatedData['name'];
+        if (isset($validatedData['phone'])) {
+            $user->phone = $validatedData['phone'];
         }
 
         if (isset($validatedData['email'])) {
