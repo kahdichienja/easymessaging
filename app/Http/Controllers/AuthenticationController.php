@@ -197,7 +197,7 @@ class AuthenticationController extends Controller
         $otpCode = $google2fa->getCurrentOtp($secretKey);
 
         $user->save();
-        
+
         // TODO: implement send otp to user either through email or phone
         $this->twilioService->sendSms($user->phone, "OTP CODE: {$otpCode}");
 
@@ -219,7 +219,7 @@ class AuthenticationController extends Controller
     {
         // Validate the request data
         $validatedData = $request->validate([
-            'phone' => 'sometimes|required|string|max:13'.Rule::phone(),
+            'phone' => 'sometimes|starts_with:+|unique:users|min:13|max:13|required|regex:/^([0-9\s\-\+\(\)]*)$/',
             'email' => 'sometimes|required|string|email|max:255|unique:users,email,' . Auth::id(),
             'profile_picture' => 'sometimes|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
