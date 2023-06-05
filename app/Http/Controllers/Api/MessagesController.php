@@ -8,9 +8,11 @@ use App\Models\Group;
 use App\Models\Message;
 use App\Models\GroupUser;
 use Illuminate\Http\Request;
+use App\Events\NewMessageEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Auth;
 
 class MessagesController extends Controller
@@ -241,13 +243,37 @@ class MessagesController extends Controller
         //
         $message->save();
 
-        ///TODO: broadcast new message to group members.
+        ///TODO: broadcast new message to receiver_id.
+
+        $this->sendNotificationToOther($message);
 
 
         return $this->success($message);
 
 
     }
+
+    /**
+     * Send notification to other users
+     *
+     * @param Message $chatMessage
+     */
+    private function sendNotificationToOther(Message $chatMessage) : void
+    {
+
+        broadcast(new NewMessageEvent($chatMessage))->toOthers();
+        $notifiedUser = User::where('id', $chatMessage->receiver_id)->first();
+
+        NotificationController::sendNotificationToUser(
+            $notifiedUser->username,
+            $chatMessage->content,
+            $chatMessage->receiver_id,
+            "CHAT",
+            $chatMessage->id,
+        );
+
+    }
+
     public function getUserGroups(Request $request): JsonResponse
     {
 

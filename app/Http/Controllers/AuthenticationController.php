@@ -152,7 +152,15 @@ class AuthenticationController extends Controller
 
         // $token = $user->createToken('auth_token')->plainTextToken;
 
-        return $this->authenticateWithTwoFactor($request);
+        if ($user) {
+            return $this->authenticateWithTwoFactor($request);
+        }else{
+            return response()->json(
+                [
+                    'message' => 'user not found',
+                ], 401);
+        }
+
 
         // return $this->success([
         //     'access_token' => $token,
@@ -164,6 +172,7 @@ class AuthenticationController extends Controller
         // Validate the incoming request data
         $validatedData = $request->validate([
             'phone' => 'starts_with:+|unique:users|min:13|max:13|required|regex:/^([0-9\s\-\+\(\)]*)$/',
+            'username' => 'required|string',
             'email' => 'required|string|email|unique:users',
             'password' => 'required|string|min:8|confirmed',
             'profile_picture' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -249,6 +258,29 @@ class AuthenticationController extends Controller
 
         // Optionally, you can redirect or return a response with a success message
         return $this->success($user, 'Profile updated successfully.', 201);
+    }
+
+    public function saveDeviceKey(Request $request)
+    {
+        // Get the authenticated user
+        $user = Auth::user();
+        if (isset($request->device_key)) {
+
+            User::where('id', $user->id)->update([
+                'device_key' => $request->device_key,
+            ]);
+
+            return response()->json([
+                'message' => 'success, notification set',
+                'success' => true,
+            ], 200);
+        } else {
+
+            return response()->json([
+                'message' => 'fail to set up notification',
+                'success' => true,
+            ], 422);
+        }
     }
 
 

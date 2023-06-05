@@ -3,6 +3,7 @@
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\MessagesController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\AuthenticationController;
 
 /*
@@ -30,6 +31,8 @@ Route::prefix('v1')->group(function () {
             Route::get('enable2FA', [AuthenticationController::class, 'enableTwoFactorAuthentication']);
             Route::get('disable2FA', [AuthenticationController::class, 'disableTwoFactorAuthentication']);
             Route::post('verify2FA', [AuthenticationController::class, 'verifyTwoFactorSetup']);
+            Route::post('savedeviceKey', [AuthenticationController::class, 'saveDeviceKey']);
+            Route::post('testnotify', [NotificationController::class, 'testnotify']);
         });
     });
 

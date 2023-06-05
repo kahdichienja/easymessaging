@@ -18,6 +18,7 @@ class Message extends Model
         'content',
         'file',
         'is_read',
+        'type'
     ];
 
     protected $dates = [

@@ -12,6 +12,7 @@
         "laravel/sanctum": "^2.11",
         "laravel/tinker": "^2.5",
         "pragmarx/google2fa": "^8.0",
+        "pusher/pusher-php-server": "^7.2",
         "twilio/sdk": "^7.3"
     },
     "require-dev": {
