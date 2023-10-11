@@ -153,7 +153,8 @@ class MessagesController extends Controller
         foreach ($users as $user) {
             array_push($contactArray, [
                 "contact" => [
-                    "lastmessagedate" => $user->created_at->diffForHumans(),
+                    // "lastmessagedate" => $user->created_at->diffForHumans(),
+                    "lastmessagedate" => $user->created_at,
                     "username" => $user->name,
                     "phone" => $user->phone,
                     "useremail" => $user->email,
@@ -218,7 +219,7 @@ class MessagesController extends Controller
 
 
         $user = auth()->user();
-        $messages = Message::where(function ($query) use ($user, $recipientId) {
+        $messages = Message::latest()->where(function ($query) use ($user, $recipientId) {
             $query->where('user_id', $user->id)
                     ->where('receiver_id', $recipientId);
         })->orWhere(function ($query) use ($user, $recipientId) {
