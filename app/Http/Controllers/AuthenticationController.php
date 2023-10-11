@@ -55,34 +55,29 @@ class AuthenticationController extends Controller
         $user = User::where('phone', $request->phone)->first();
         $token = $user->createToken('auth_token')->plainTextToken;
 
-        if($user->google2fa_enabled){
-
-            $google2fa = new Google2FA();
-            $secretKey = $google2fa->generateSecretKey();
-            $user->google2fa_secret =  $secretKey;
+        $google2fa = new Google2FA();
+        $secretKey = $google2fa->generateSecretKey();
+        $user->google2fa_secret =  $secretKey;
 
 
-            // Generate an OTP code based on the secret key
-            $otpCode = $google2fa->getCurrentOtp($secretKey);
+        // Generate an OTP code based on the secret key
+        $otpCode = $google2fa->getCurrentOtp($secretKey);
 
+        $user->save();
 
-            // TODO: implement send otp to user either through email or phone
-            // $this->twilioService->sendSms($user->phone, "OTP CODE: {$otpCode}");
+        // TODO: implement send otp to user either through email or phone
+        // $this->twilioService->sendSms($user->phone, "OTP CODE: {$otpCode}");
 
-            $user->save();
-            return  $this->success([
+        return  $this->success(
+            [
                 'message' => 'Verification Code sent to you phone',
                 'code' => $otpCode,
+                'user' => $user,
+                'newuser' => false,
                 'access_token' => $token,
-            ]);
-        }else{
-            return  $this->success([
-                'message' => 'Auth success',
-                'code' => "",
-                'access_token' => $token,
-            ]);
-
-        }
+            ],
+            'Verification Code sent to you phone',
+        );
 
     }
 
@@ -101,7 +96,7 @@ class AuthenticationController extends Controller
         return $this->success(['message' => 'Two-factor authentication disabled']);
     }
 
-     /**
+    /**
      * Verify the 2FA setup with the provided code.
      *
      * @param  \Illuminate\Http\Request  $request
@@ -124,10 +119,22 @@ class AuthenticationController extends Controller
 
             $token = $user->createToken('auth_token')->plainTextToken;
 
-            return $this->success([
-                'access_token' => $token,
-                'token_type' => 'Bearer',
-            ]);
+            // return $this->success([
+            //     'access_token' => $token,
+            //     'token_type' => 'Bearer',
+            // ]);
+
+            return $this->success(
+
+                [
+                    'message' => 'Verification successful',
+                    'user' => $user,
+                    'newuser' => true,
+                    'code' => $request->code,
+                    'access_token' => $token,
+                ], 'Verification successful'
+            );
+
 
             // return $this->success(['message' => 'Two-factor authentication enabled']);
         }
@@ -144,38 +151,22 @@ class AuthenticationController extends Controller
 
         $user = User::where('phone', $request->phone)->first();
 
-        // if (!$user || !Hash::check($request->password, $user->password)) {
-        //     return response()->json([
-        //         'message' => 'Invalid phone or password',
-        //     ], 401);
-        // }
-
-        // $token = $user->createToken('auth_token')->plainTextToken;
-
         if ($user) {
             return $this->authenticateWithTwoFactor($request);
-        }else{
-            return response()->json(
-                [
-                    'message' => 'user not found',
-                ], 401);
+        } else {
+            return $this->register($request);
         }
 
-
-        // return $this->success([
-        //     'access_token' => $token,
-        //     'token_type' => 'Bearer',
-        // ]);
     }
     public function register(Request $request)
     {
         // Validate the incoming request data
         $validatedData = $request->validate([
             'phone' => 'starts_with:+|unique:users|min:13|max:13|required|regex:/^([0-9\s\-\+\(\)]*)$/',
-            'username' => 'required|string',
-            'email' => 'required|string|email|unique:users',
-            'password' => 'required|string|min:8|confirmed',
-            'profile_picture' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
+            // 'username' => 'required|string',
+            // 'email' => 'required|string|email|unique:users',
+            // 'password' => 'required|string|min:8|confirmed',
+            // 'profile_picture' => 'image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         // Handle the profile picture upload, if provided
@@ -189,8 +180,8 @@ class AuthenticationController extends Controller
         // Create a new user
         $user = User::create([
             'phone' => $validatedData['phone'],
-            'email' => $validatedData['email'],
-            'password' => Hash::make($validatedData['password']),
+            'email' => $validatedData['phone'],
+            'password' => Hash::make($validatedData['phone']),
             'profile_picture' => $profilePicturePath,
         ]);
 
@@ -208,10 +199,20 @@ class AuthenticationController extends Controller
         $user->save();
 
         // TODO: implement send otp to user either through email or phone
-        $this->twilioService->sendSms($user->phone, "OTP CODE: {$otpCode}");
+        // $this->twilioService->sendSms($user->phone, "OTP CODE: {$otpCode}");
 
         // Return a response indicating successful registration
-        return $this->success(['message' => 'Registration successful'],'Registration successful', 201);
+        $token = $user->createToken('auth_token')->plainTextToken;
+        return $this->success(
+
+            [
+                'message' => 'Registration successful',
+                'user' => $user,
+                'newuser' => true,
+                'code' => $otpCode,
+                'access_token' => $token,
+            ], 'Registration successful'
+        );
     }
 
 
@@ -219,10 +220,9 @@ class AuthenticationController extends Controller
     {
         // Get the authenticated user
 
-        $user= User::where('id', Auth::user()->id)->with('settings')->first();
+        $user = User::where('id', Auth::user()->id)->with('settings')->first();
 
         return $this->success($user, 'Profile updated successfully.', 200);
-
     }
     public function updateProfile(Request $request)
     {
@@ -282,7 +282,4 @@ class AuthenticationController extends Controller
             ], 422);
         }
     }
-
-
-
 }

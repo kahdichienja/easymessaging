@@ -50,7 +50,6 @@ class MessagesController extends Controller
         }
 
         return $this->success($group, "{$group->name} created successfully");
-
     }
     public function addUserToGroup(Request $request): JsonResponse
     {
@@ -85,17 +84,17 @@ class MessagesController extends Controller
 
         // Check if user is already a member of the group
         $userAlreadyInGroup = GroupUser::where('user_id', $userId)
-        ->where('group_id', $groupId)
-        ->exists();
+            ->where('group_id', $groupId)
+            ->exists();
 
         if ($userAlreadyInGroup) {
             return $this->error('user is already a member of the group', 403);
-        }else {
+        } else {
             // Create group user
             $newuser = new GroupUser;
             $newuser->group_id = $groupId;
             $newuser->user_id = $userId;
-            $newuser->is_admin = $request->is_admin??false;
+            $newuser->is_admin = $request->is_admin ?? false;
             $newuser->save();
 
             // broadcast new user added to the group
@@ -104,13 +103,12 @@ class MessagesController extends Controller
         }
 
         return $this->success($groupUser, " successfully");
-
     }
 
     public function fetchMessagesQuery($user_id)
     {
         return Message::where('receiver_id', Auth::user()->id)->where('user_id', $user_id)
-                    ->orWhere('receiver_id', $user_id)->where('user_id', Auth::user()->id);
+            ->orWhere('receiver_id', $user_id)->where('user_id', Auth::user()->id);
     }
     public function getLastMessageQuery($user_id)
     {
@@ -131,37 +129,38 @@ class MessagesController extends Controller
         $contactArray = [];
 
 
-        $users = User::select('users.*',  'm.content as lastmessage', 'm.created_at' )
-        ->leftJoin(DB::raw('(SELECT
+        $users = User::select('users.*',  'm.content as lastmessage', 'm.created_at')
+            ->leftJoin(DB::raw('(SELECT
             MAX(id) as id,
-            IF(user_id = '.$currentUser->id.', receiver_id, user_id) as chat_user_id
+            IF(user_id = ' . $currentUser->id . ', receiver_id, user_id) as chat_user_id
             FROM messages
-            WHERE user_id = '.$currentUser->id.' OR receiver_id = '.$currentUser->id.'
-            GROUP BY chat_user_id) as latest'), function($join) {
-            $join->on('users.id', '=', 'latest.chat_user_id');
-        })
-        ->leftJoin('messages as m', 'latest.id', '=', 'm.id')
+            WHERE user_id = ' . $currentUser->id . ' OR receiver_id = ' . $currentUser->id . '
+            GROUP BY chat_user_id) as latest'), function ($join) {
+                $join->on('users.id', '=', 'latest.chat_user_id');
+            })
+            ->leftJoin('messages as m', 'latest.id', '=', 'm.id')
 
-        // ->selectRaw('SUM(CASE WHEN messages.is_read = false AND messages.receiver_id = ? THEN 1 ELSE 0 END) as unread_count', [$currentUser->id])
-        ->where(function ($query) use ($currentUser) {
-            $query->where('user_id', $currentUser->id)
-                ->orWhere('receiver_id', $currentUser->id);
-        })
+            // ->selectRaw('SUM(CASE WHEN messages.is_read = false AND messages.receiver_id = ? THEN 1 ELSE 0 END) as unread_count', [$currentUser->id])
+            ->where(function ($query) use ($currentUser) {
+                $query->where('user_id', $currentUser->id)
+                    ->orWhere('receiver_id', $currentUser->id);
+            })
 
-        ->whereNotNull('latest.id')
-        ->orderBy('latest.id', 'desc')
-        ->get();
+            ->whereNotNull('latest.id')
+            ->orderBy('latest.id', 'desc')
+            ->get();
 
         foreach ($users as $user) {
             array_push($contactArray, [
                 "contact" => [
                     "lastmessagedate" => $user->created_at->diffForHumans(),
                     "username" => $user->name,
+                    "phone" => $user->phone,
                     "useremail" => $user->email,
                     "lastmessage" => $user->lastmessage,
                     "userid" => $user->id,
                 ],
-                 "unreadcount" => $this->countUnseenMessages($user->id)
+                "unreadcount" => $this->countUnseenMessages($user->id)
             ]);
         }
 
@@ -197,25 +196,46 @@ class MessagesController extends Controller
 
         // Increment unread_count for all other members of the group
         $group->users()
-        ->where('users.id', '<>', $user->id) // exclude sender
-        ->each(function ($user) {
-            $user->pivot->increment('unread_count');
-        });
+            ->where('users.id', '<>', $user->id) // exclude sender
+            ->each(function ($user) {
+                $user->pivot->increment('unread_count');
+            });
 
         return $this->success($message);
-
-
     }
     public function userMessage(Request $request): JsonResponse
     {
         $user = Auth::user();
-        $conversation = Message::where('user_id', $user->id)
-        ->where('group_id', null)
-        ->where("receiver_id", $request->receiver_id)
+        $receiver = User::find($request->receiver_id);
+
+        $recipientId = $request->receiver_id;
+
+        // $conversation = Message::where('group_id', null)
+        //     ->where('user_id', $user->id)
+        //     ->orWhere("receiver_id", $receiver->id)
+        //     // ->with('user')
+        //     ->get();
+
+
+        $user = auth()->user();
+        $messages = Message::where(function ($query) use ($user, $recipientId) {
+            $query->where('user_id', $user->id)
+                    ->where('receiver_id', $recipientId);
+        })->orWhere(function ($query) use ($user, $recipientId) {
+            $query->where('user_id', $recipientId)
+                    ->where('receiver_id', $user->id);
+        })
         ->with('user')
         ->get();
+        
 
-        return $this->success($conversation, " successful");
+        return $this->success(
+            [
+                "conversation" => $messages,
+                "receiver" => $receiver,
+            ],
+            " successful"
+        );
     }
     public function createMessage(Request $request): JsonResponse
     {
@@ -249,8 +269,6 @@ class MessagesController extends Controller
 
 
         return $this->success($message);
-
-
     }
 
     /**
@@ -258,7 +276,7 @@ class MessagesController extends Controller
      *
      * @param Message $chatMessage
      */
-    private function sendNotificationToOther(Message $chatMessage) : void
+    private function sendNotificationToOther(Message $chatMessage): void
     {
 
         broadcast(new NewMessageEvent($chatMessage))->toOthers();
@@ -271,7 +289,6 @@ class MessagesController extends Controller
             "CHAT",
             $chatMessage->id,
         );
-
     }
 
     public function getUserGroups(Request $request): JsonResponse
@@ -292,16 +309,16 @@ class MessagesController extends Controller
         // })
         // ->get();
         $groups = GroupUser::where('user_id', $userId)
-        ->with([
-            'group' => function ($query) {
-                $query->with([
-                    'messages' => function ($query) {
-                        $query->latest()->first();
-                    }
-                ]);
-            }
-        ])
-        ->get();
+            ->with([
+                'group' => function ($query) {
+                    $query->with([
+                        'messages' => function ($query) {
+                            $query->latest()->first();
+                        }
+                    ]);
+                }
+            ])
+            ->get();
 
 
         return $this->success($groups);
@@ -317,13 +334,13 @@ class MessagesController extends Controller
         // $pageSize = $data['page_size'] ?? 15;
 
         $messages = Group::latest('created_at')->where('id', $request->group_id)
-        ->whereHas('users', function ($query) use ($userId) {
-            $query->where('user_id', $userId);
-        })
-        ->with(['messages' => function ($query) {
-            $query->with('user')->orderBy('created_at', 'DESC');
-        }])
-        ->first();
+            ->whereHas('users', function ($query) use ($userId) {
+                $query->where('user_id', $userId);
+            })
+            ->with(['messages' => function ($query) {
+                $query->with('user')->orderBy('created_at', 'DESC');
+            }])
+            ->first();
 
         // Check if the authenticated user belongs to the group
         $userInGroup = GroupUser::where('group_id', $groupId)->where('user_id', $userId)->exists();
@@ -346,16 +363,16 @@ class MessagesController extends Controller
             // Return an error response
             return $this->error('no group found', 404);
         }
-
     }
 
     public function allContacts(Request $request): JsonResponse
     {
 
         return $this->success(User::latest()->where('id', '!=', Auth::user()->id)->get()->map(function ($user) {
-            return[
+            return [
                 "uid" => $user->id,
                 "useremail" => $user->email,
+                "phone" => $user->phone,
                 "username" => $user->name,
                 "joined" => $user->created_at->diffForHumans(),
             ];
