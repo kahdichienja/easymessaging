@@ -1,0 +1,6 @@
+php artisan make:controller NotificationController
+php artisan make:job NotificationScheduleJob
+php artisan queue:table 
+php artisan migrate    
+php artisan serve 
+php artisan queue:work 

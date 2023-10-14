@@ -10,14 +10,19 @@ class TwilioService
 
     public function __construct()
     {
-        $accountSid = config('services.twilio.sid');
-        $authToken = config('services.twilio.auth_token');
+
+        
+        // env('TWILIO_AUTH_TOKEN', '8371e18d3f1c9eee23ed1d8c9a1500a1');
+        // env('TWILIO_PHONE_NUMBER', '+12543205891');
+        
+        $accountSid = env('TWILIO_SID', 'AC81702a0bd87f8c5192713f9dda783b1a');
+        $authToken =  env('TWILIO_AUTH_TOKEN', '8371e18d3f1c9eee23ed1d8c9a1500a1');
         $this->client = new Client($accountSid, $authToken);
     }
 
     public function sendSms($to, $message)
     {
-        $from = config('services.twilio.phone_number');
+        $from = env('TWILIO_PHONE_NUMBER', '+12543205891');
 
         $this->client->messages->create($to, [
             'from' => $from,

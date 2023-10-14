@@ -15,17 +15,18 @@ class NotificationController extends Controller
             $request->body, 
             $request->user_id, 
             $request->notification_type, 
-            $request->chat_id
+            $request->chat_id,
+            $request->receiver_id
         );
     }
 
-    public static function sendNotificationToUser($title, $body, $client_id, $type, $chat_id, $image = NULL)
+    public static function sendNotificationToUser($title, $body, $type, $chat_id, $receiver_id, $sender_id, $image = NULL)
     {
 
         $url = env('FCM_URL', null);
 
         $FcmToken = User::whereNotNull("device_key")
-            ->where('id', $client_id)
+            ->where('id', $receiver_id)
             ->pluck("device_key")
             ->first();
 
@@ -33,6 +34,8 @@ class NotificationController extends Controller
         $dataArr = [
             "type" => $type,
             "chat_id" => $chat_id,
+            "receiver_id" => $receiver_id,
+            "sender_id" => $sender_id,
             "click_action" => "FLUTTER_NOTIFICATION_CLICK",
             "status" => "done",
             "image" => $image

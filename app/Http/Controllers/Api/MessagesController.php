@@ -7,13 +7,14 @@ use App\Models\User;
 use App\Models\Group;
 use App\Models\Message;
 use App\Models\GroupUser;
+use App\Events\UserContact;
 use Illuminate\Http\Request;
 use App\Events\NewMessageEvent;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
-use App\Http\Controllers\NotificationController;
 use Illuminate\Support\Facades\Auth;
+use App\Http\Controllers\NotificationController;
 
 class MessagesController extends Controller
 {
@@ -211,11 +212,6 @@ class MessagesController extends Controller
 
         $recipientId = $request->receiver_id;
 
-        // $conversation = Message::where('group_id', null)
-        //     ->where('user_id', $user->id)
-        //     ->orWhere("receiver_id", $receiver->id)
-        //     // ->with('user')
-        //     ->get();
 
 
         $user = auth()->user();
@@ -265,6 +261,9 @@ class MessagesController extends Controller
         $message->save();
 
         ///TODO: broadcast new message to receiver_id.
+        // event(new NewMessageEvent($message));
+
+        // NewMessageEvent::dispatch($message);
 
         $this->sendNotificationToOther($message);
 
@@ -281,39 +280,24 @@ class MessagesController extends Controller
     {
 
         broadcast(new NewMessageEvent($chatMessage))->toOthers();
-        $notifiedUser = User::where('id', $chatMessage->receiver_id)->first();
-
-        NotificationController::sendNotificationToUser(
-            $notifiedUser->username,
-            $chatMessage->content,
-            $chatMessage->receiver_id,
-            "CHAT",
-            $chatMessage->id,
-        );
+        broadcast(new UserContact($chatMessage->receiver_id));
+        
     }
 
     public function getUserGroups(Request $request): JsonResponse
     {
 
-        // $currentPage = $data['page'];
-        // $pageSize = $data['page_size'] ?? 15;
 
-        // Get the authenticated user's ID
         $userId = Auth::id();
 
-        //  Get the authenticated user's groups
-        // $groups = Group::whereHas('users', function ($query) use ($userId) {
-        //     $query->where('user_id', $userId);
-        // })
-        // ->with('messages', function($query) {
-        //     $query->latest('created_at')->with('user')->first();
-        // })
-        // ->get();
+        $user = auth()->user(); // Assuming you're using authentication
+
+        
         $groups = GroupUser::where('user_id', $userId)
             ->with([
                 'group' => function ($query) {
                     $query->with([
-                        'messages' => function ($query) {
+                        'conversations' => function ($query) {
                             $query->latest()->first();
                         }
                     ]);
@@ -338,7 +322,7 @@ class MessagesController extends Controller
             ->whereHas('users', function ($query) use ($userId) {
                 $query->where('user_id', $userId);
             })
-            ->with(['messages' => function ($query) {
+            ->with(['conversations' => function ($query) {
                 $query->with('user')->orderBy('created_at', 'DESC');
             }])
             ->first();
@@ -355,8 +339,8 @@ class MessagesController extends Controller
             // return $group->users;
 
             $data = [
-                "messages" => $messages,
-                "users" => $groupUsers,
+                "group" => $messages,
+                "participants" => $groupUsers,
             ];
 
             return $this->success($data);

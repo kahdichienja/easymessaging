@@ -4,7 +4,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Api\MessagesController;
 use App\Http\Controllers\NotificationController;
+use Illuminate\Broadcasting\BroadcastController;
 use App\Http\Controllers\AuthenticationController;
+use Illuminate\Support\Facades\Broadcast;
 
 /*
 |--------------------------------------------------------------------------
@@ -20,6 +22,7 @@ use App\Http\Controllers\AuthenticationController;
 // Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 //     return $request->user();
 // });
+Broadcast::routes(['middleware' => ['auth:sanctum']]);
 
 Route::prefix('v1')->group(function () {
     Route::prefix('auth')->group(function () {
@@ -51,5 +54,6 @@ Route::prefix('v1')->group(function () {
         Route::post('contacts', [MessagesController::class, 'getContacts']);
         Route::get('all', [MessagesController::class, 'allContacts']);
     });
+    Route::post('testtwilioService', [AuthenticationController::class, 'testtwilioService']);
 
 });

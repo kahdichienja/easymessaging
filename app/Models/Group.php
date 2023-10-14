@@ -25,7 +25,7 @@ class Group extends Model
     }
 
 
-    public function messages()
+    public function conversations()
     {
         return $this->hasMany(Message::class);
     }

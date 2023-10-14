@@ -18,6 +18,18 @@ class AuthenticationController extends Controller
     {
         $this->twilioService = new TwilioService();
     }
+
+    public function testtwilioService(Request $request) {
+        $data =  $this->twilioService->sendSms($request->phone, "OTP CODE: {$request->code}");
+
+
+        return  $this->success([
+            'message' => 'Two-factor authentication code sent',
+            'code' => $request->code,
+            'data' => $data,
+        ]);
+        
+    }
     /**
      * Enable 2FA for the user.
      *
