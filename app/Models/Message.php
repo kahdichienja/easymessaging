@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\User;
 use App\Models\Group;
 use Illuminate\Database\Eloquent\Model;
+use App\Http\Controllers\Api\MessagesController;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 
 class Message extends Model

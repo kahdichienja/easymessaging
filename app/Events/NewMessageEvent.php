@@ -40,7 +40,7 @@ class NewMessageEvent implements ShouldBroadcastNow
      */
     public function broadcastOn()
     {
-        return new PrivateChannel('chat'.$this->chatMessage->receiver_id);
+        return new Channel('chat'.$this->chatMessage->receiver_id);
     }
 
 

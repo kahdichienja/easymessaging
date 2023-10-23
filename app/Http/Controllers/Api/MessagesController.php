@@ -266,6 +266,7 @@ class MessagesController extends Controller
         // NewMessageEvent::dispatch($message);
 
         $this->sendNotificationToOther($message);
+        
 
 
         return $this->success($message);
@@ -281,7 +282,51 @@ class MessagesController extends Controller
 
         broadcast(new NewMessageEvent($chatMessage))->toOthers();
         broadcast(new UserContact($chatMessage->receiver_id));
-        
+
+    }
+
+    public function eventstream(Request $request) {
+
+        $receiver = User::find($request->receiver_id);
+
+        $recipientId = $request->receiver_id;
+        return response()->stream(function () use ($recipientId, $receiver){
+            while (true) {
+
+                $user = auth()->user();
+
+
+
+                // $messages = Message::latest()->where(function ($query) use ($user, $recipientId) {
+                //     $query->where('user_id', $user->id)
+                //             ->where('receiver_id', $recipientId);
+                // })->orWhere(function ($query) use ($user, $recipientId) {
+                //     $query->where('user_id', $recipientId)
+                //             ->where('receiver_id', $user->id);
+                // })
+                // ->with('user')
+                // ->get();
+
+                $data = [
+                    // "conversation" => $messages,
+                    "receiver" => $receiver,
+                ];
+
+
+                echo"{$data}";
+                
+                ob_flush();
+                flush();
+                
+                // Break the loop if the client aborted the connection (closed the page)
+                if (connection_aborted()) {break;}
+                // usleep(50000); // 50ms
+                sleep(5);
+            }
+        }, 200, [
+            'Cache-Control' => 'no-cache',
+            'Content-Type' => 'text/event-stream',
+        ]);
     }
 
     public function getUserGroups(Request $request): JsonResponse
@@ -364,3 +409,4 @@ class MessagesController extends Controller
         }), "success");
     }
 }
+ 

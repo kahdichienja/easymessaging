@@ -36,7 +36,7 @@ class UserContact implements ShouldBroadcastNow
      */
     public function broadcastOn()
     {
-        return new PrivateChannel('user_contact'.$this->receiver_id);
+        return new Channel('user_contact'.$this->receiver_id);
     }
 
 
