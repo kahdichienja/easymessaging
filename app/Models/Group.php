@@ -29,4 +29,8 @@ class Group extends Model
     {
         return $this->hasMany(Message::class);
     }
+    public function mediafiles()
+    {
+        return $this->hasMany(Message::class)->whereIn('type', array('image', 'video', 'audio'));
+    }
 }

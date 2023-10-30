@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Storage;
 use App\Http\Controllers\NotificationController;
 
 class MessagesController extends Controller
@@ -130,7 +131,7 @@ class MessagesController extends Controller
         $contactArray = [];
 
 
-        $users = User::select('users.*',  'm.content as lastmessage', 'm.created_at')
+        $users = User::select('users.*',  'm.content as lastmessage', 'm.type', 'm.created_at')
             ->leftJoin(DB::raw('(SELECT
             MAX(id) as id,
             IF(user_id = ' . $currentUser->id . ', receiver_id, user_id) as chat_user_id
@@ -156,10 +157,11 @@ class MessagesController extends Controller
                 "contact" => [
                     // "lastmessagedate" => $user->created_at->diffForHumans(),
                     "lastmessagedate" => $user->created_at,
-                    "username" => $user->name,
+                    "username" => $user->username,
                     "phone" => $user->phone,
                     "useremail" => $user->email,
                     "lastmessage" => $user->lastmessage,
+                    "type" => $user->type,
                     "userid" => $user->id,
                 ],
                 "unreadcount" => $this->countUnseenMessages($user->id)
@@ -234,6 +236,9 @@ class MessagesController extends Controller
             " successful"
         );
     }
+    public function getMessageType($ext): String{
+        return 'image';
+    }
     public function createMessage(Request $request): JsonResponse
     {
         $user = Auth::user();
@@ -241,7 +246,7 @@ class MessagesController extends Controller
         // Validate request data
         $validatedData = $request->validate([
             'receiver_id' => 'required|integer',
-            'message' => 'required|string|max:1000'
+            'message' => 'string|max:1000'
         ]);
 
         // Check if user to be added exists
@@ -257,6 +262,27 @@ class MessagesController extends Controller
         $message->receiver_id = $validatedData['receiver_id'];
         $message->user_id = $user->id;
         $message->content = $validatedData['message'];
+
+         // Check if request has an uploaded
+         if ($request->hasFile('file')) {
+
+            // get file name with the ext.
+            $filenameWithExt = $request->file('file')->getClientOriginalName();
+            // get the file name
+            $filename = pathinfo($filenameWithExt, PATHINFO_FILENAME);
+            // get ext
+            $extension = $request->file('file')->getClientOriginalExtension();
+
+            // file to store
+            $fileNameToStore = $filename.'_'.time().'.'.$extension;
+            // upload it to the db
+            $path = $request->file('file')->storeAs('/public/chat_file', $fileNameToStore);
+
+            $message->file = $fileNameToStore;
+            $message->type = $this->getMessageType($extension);
+
+            ///{{APP_DOMAIN}}/storage/chat_file/images_1698655637.jpeg
+        }
         //
         $message->save();
 
@@ -285,49 +311,49 @@ class MessagesController extends Controller
 
     }
 
-    public function eventstream(Request $request) {
+    // public function eventstream(Request $request) {
 
-        $receiver = User::find($request->receiver_id);
+    //     $receiver = User::find($request->receiver_id);
 
-        $recipientId = $request->receiver_id;
-        return response()->stream(function () use ($recipientId, $receiver){
-            while (true) {
+    //     $recipientId = $request->receiver_id;
+    //     return response()->stream(function () use ($recipientId, $receiver){
+    //         while (true) {
 
-                $user = auth()->user();
-
-
-
-                // $messages = Message::latest()->where(function ($query) use ($user, $recipientId) {
-                //     $query->where('user_id', $user->id)
-                //             ->where('receiver_id', $recipientId);
-                // })->orWhere(function ($query) use ($user, $recipientId) {
-                //     $query->where('user_id', $recipientId)
-                //             ->where('receiver_id', $user->id);
-                // })
-                // ->with('user')
-                // ->get();
-
-                $data = [
-                    // "conversation" => $messages,
-                    "receiver" => $receiver,
-                ];
+    //             $user = auth()->user();
 
 
-                echo"{$data}";
+
+    //             // $messages = Message::latest()->where(function ($query) use ($user, $recipientId) {
+    //             //     $query->where('user_id', $user->id)
+    //             //             ->where('receiver_id', $recipientId);
+    //             // })->orWhere(function ($query) use ($user, $recipientId) {
+    //             //     $query->where('user_id', $recipientId)
+    //             //             ->where('receiver_id', $user->id);
+    //             // })
+    //             // ->with('user')
+    //             // ->get();
+
+    //             $data = [
+    //                 // "conversation" => $messages,
+    //                 "receiver" => $receiver,
+    //             ];
+
+
+    //             echo"{$data}";
                 
-                ob_flush();
-                flush();
+    //             ob_flush();
+    //             flush();
                 
-                // Break the loop if the client aborted the connection (closed the page)
-                if (connection_aborted()) {break;}
-                // usleep(50000); // 50ms
-                sleep(5);
-            }
-        }, 200, [
-            'Cache-Control' => 'no-cache',
-            'Content-Type' => 'text/event-stream',
-        ]);
-    }
+    //             // Break the loop if the client aborted the connection (closed the page)
+    //             if (connection_aborted()) {break;}
+    //             // usleep(50000); // 50ms
+    //             sleep(5);
+    //         }
+    //     }, 200, [
+    //         'Cache-Control' => 'no-cache',
+    //         'Content-Type' => 'text/event-stream',
+    //     ]);
+    // }
 
     public function getUserGroups(Request $request): JsonResponse
     {
@@ -335,10 +361,10 @@ class MessagesController extends Controller
 
         $userId = Auth::id();
 
-        $user = auth()->user(); // Assuming you're using authentication
+        // $user = auth()->user(); // Assuming you're using authentication
 
         
-        $groups = GroupUser::where('user_id', $userId)
+        $groups = GroupUser::latest()->where('user_id', $userId)
             ->with([
                 'group' => function ($query) {
                     $query->with([
@@ -370,6 +396,7 @@ class MessagesController extends Controller
             ->with(['conversations' => function ($query) {
                 $query->with('user')->orderBy('created_at', 'DESC');
             }])
+            ->with(['mediafiles'])
             ->first();
 
         // Check if the authenticated user belongs to the group

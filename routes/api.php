@@ -55,6 +55,6 @@ Route::prefix('v1')->group(function () {
         Route::get('all', [MessagesController::class, 'allContacts']);
     });
     Route::post('testtwilioService', [AuthenticationController::class, 'testtwilioService']);
-    Route::post('eventstream', [MessagesController::class, 'eventstream'])->middleware('auth:sanctum');
+    // Route::post('eventstream', [MessagesController::class, 'eventstream'])->middleware('auth:sanctum');
 
 });
